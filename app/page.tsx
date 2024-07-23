@@ -13,7 +13,7 @@ import {
 } from "@solana/web3.js";
 import "dotenv/config";
 import bs58 from 'bs58';
-
+import { createAssociatedTokenAccount, createMint, getAssociatedTokenAddress, mintTo } from "@solana/spl-token";
 
 const solana = async () => {
 
@@ -67,10 +67,79 @@ const solana = async () => {
   console.log(`✅ Finished!`);
 }
 
+const createToken = async () => {
+  //从私钥创建一个key pair用于签名
+  const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+  const secretKeyUint8Array = bs58.decode(secretKey);
+  const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
+
+  //连接节点
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  //创建token,实质就是创建一个数据账户,owner是token程序,并初始化数据账户的一些数据
+  const tokenMint = await createMint(
+    connection,
+    senderKeypair,
+    senderKeypair.publicKey, //
+    senderKeypair.publicKey, //
+    18, //精度
+  );
+  console.log(`✅ Success! Token account is: ${tokenMint}`);
+}
+
+const createATA = async () => {
+  //从私钥创建一个key pair用于签名1
+  const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+  const secretKeyUint8Array = bs58.decode(secretKey);
+  const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
+
+  //连接节点
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  //创建ATA账户，用来存放我所拥有的某种token
+  //first creates the account, second initializes the account as a Token Account
+  const associatedTokenAccount = await createAssociatedTokenAccount(
+    connection,
+    senderKeypair,
+    new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+    senderKeypair.publicKey,
+  );
+  console.log(`ATA:${associatedTokenAccount}`)
+}
+
+const mint = async () => {
+    //从私钥创建一个key pair用于签名1
+    const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+    const secretKeyUint8Array = bs58.decode(secretKey);
+    const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
+  
+    //连接节点
+    const connection = new Connection(clusterApiUrl("devnet"));
+
+    //获取ata
+    const associatedTokenAddress = await getAssociatedTokenAddress(
+      new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+      senderKeypair.publicKey,
+    );
+    console.log(`ata:${associatedTokenAddress}`)
+    const transactionSignature = await mintTo(
+      connection,
+      senderKeypair,
+      new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+      associatedTokenAddress,
+      senderKeypair.publicKey,
+      100000,
+    );
+    console.log(`mint tx signature: ${transactionSignature}`)
+}
+
 export default async function Home() {
   return (
     <div>
-      <button onClick={solana}>solana</button>
+      <button onClick={solana}>solana</button><br></br>
+      <button onClick={createToken}>create token</button><br></br>
+      <button onClick={createATA}>create ATA</button><br></br>
+      <button onClick={mint}>mint</button>
     </div>
   );
 }
