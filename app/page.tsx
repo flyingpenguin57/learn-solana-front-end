@@ -13,7 +13,13 @@ import {
 } from "@solana/web3.js";
 import "dotenv/config";
 import bs58 from 'bs58';
-import { createAssociatedTokenAccount, createMint, getAssociatedTokenAddress, mintTo } from "@solana/spl-token";
+import { createAssociatedTokenAccount, createMint, getAssociatedTokenAddress, getOrCreateAssociatedTokenAccount, mintTo, transfer } from "@solana/spl-token";
+import {
+  Metaplex,
+  keypairIdentity,
+  irysStorage,
+  toMetaplexFile,
+} from "@metaplex-foundation/js";
 
 const solana = async () => {
 
@@ -108,38 +114,96 @@ const createATA = async () => {
 }
 
 const mint = async () => {
-    //从私钥创建一个key pair用于签名1
-    const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
-    const secretKeyUint8Array = bs58.decode(secretKey);
-    const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
-  
-    //连接节点
-    const connection = new Connection(clusterApiUrl("devnet"));
+  //从私钥创建一个key pair用于签名1
+  const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+  const secretKeyUint8Array = bs58.decode(secretKey);
+  const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
 
-    //获取ata
-    const associatedTokenAddress = await getAssociatedTokenAddress(
-      new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
-      senderKeypair.publicKey,
+  //连接节点
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  //获取ata
+  const associatedTokenAddress = await getAssociatedTokenAddress(
+    new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+    senderKeypair.publicKey,
+  );
+  console.log(`ata:${associatedTokenAddress}`)
+  const transactionSignature = await mintTo(
+    connection,
+    senderKeypair,
+    new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+    associatedTokenAddress,
+    senderKeypair.publicKey,
+    100000,
+  );
+  console.log(`mint tx signature: ${transactionSignature}`)
+}
+
+const _transfer = async () => {
+  //从私钥创建一个key pair用于签名1
+  const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+  const secretKeyUint8Array = bs58.decode(secretKey);
+  const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
+
+  //连接节点
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  const associatedTokenAddress = await getAssociatedTokenAddress(
+    new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+    senderKeypair.publicKey,
+  );
+  const to = await getOrCreateAssociatedTokenAccount(
+    connection,
+    senderKeypair,
+    new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
+    new PublicKey("FGV3bhbCZfx6DCVLBQoLij5Uz6dw6nqrdwcYqFekvcZs")
+  )
+  console.log(`to:${to.address}`)
+  const transactionSignature = await transfer(
+    connection,
+    senderKeypair,
+    associatedTokenAddress,
+    to.address,
+    senderKeypair.publicKey,
+    100,
+  );
+  console.log(`transfer signature: ${transactionSignature}`)
+}
+
+const createCollection = () => {
+  //从私钥创建一个key pair用于签名1
+  const secretKey = '39EhXuLKkvY47GijBeWg2ddHdWBcTdoNF2vkwhTW7ZMw8jTPxknRREA2di96NYjjcj4LpYjMo6P6c8Ru6LPzVsCB';
+  const secretKeyUint8Array = bs58.decode(secretKey);
+  const senderKeypair = Keypair.fromSecretKey(secretKeyUint8Array);
+
+  //连接节点
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  //metadata program js客户端
+  const metaplex = Metaplex.make(connection)
+    .use(keypairIdentity(senderKeypair)) //交易签名者
+    .use( //链下存储
+      irysStorage({
+        address: "https://devnet.irys.xyz",
+        providerUrl: "https://api.devnet.solana.com",
+        timeout: 60000,
+      }),
     );
-    console.log(`ata:${associatedTokenAddress}`)
-    const transactionSignature = await mintTo(
-      connection,
-      senderKeypair,
-      new PublicKey("42gh7hvLsQcsjak2KZAw6cFUfeCeHTARgQjzhtVojGSx"),
-      associatedTokenAddress,
-      senderKeypair.publicKey,
-      100000,
-    );
-    console.log(`mint tx signature: ${transactionSignature}`)
 }
 
 export default async function Home() {
   return (
     <div>
+      <div>******</div>
+      <h2>erc20</h2>
       <button onClick={solana}>solana</button><br></br>
       <button onClick={createToken}>create token</button><br></br>
       <button onClick={createATA}>create ATA</button><br></br>
-      <button onClick={mint}>mint</button>
+      <button onClick={mint}>mint</button><br></br>
+      <button onClick={_transfer}>transfer</button>
+      <br></br>
+      <div>******</div>
+      <h1>erc721</h1>
     </div>
   );
 }
